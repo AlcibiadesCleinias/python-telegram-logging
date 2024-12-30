@@ -71,10 +71,16 @@ class AsyncTelegramHandler(BaseTelegramHandler):
                 self.handleError(None)  # type: ignore
             finally:
                 # Clean up the event loop
-                if self._loop is not None and self._loop.is_running():
-                    self._loop.stop()
-                if self._loop is not None and not self._loop.is_closed():
-                    self._loop.close()
+                try:
+                    if self._loop is not None:
+                        # Cancel all tasks
+                        for task in asyncio.all_tasks(self._loop):
+                            task.cancel()
+                        # Run the event loop once more to let tasks clean up
+                        self._loop.run_until_complete(asyncio.sleep(0))
+                        self._loop.close()
+                except Exception:
+                    pass
 
         self._thread = threading.Thread(target=run_event_loop, daemon=True)
         self._thread.start()
@@ -105,10 +111,14 @@ class AsyncTelegramHandler(BaseTelegramHandler):
             payload = self.prepare_payload(message)
 
             await self._rate_limiter.acquire()
-            async with self._session.post(self._base_url, json=payload) as response:
-                if not response.ok:
-                    error_text = await response.text()
-                    raise TelegramAPIError(f"Telegram API returned {response.status}: {error_text}")
+            try:
+                async with self._session.post(self._base_url, json=payload) as response:
+                    if not response.ok:
+                        error_text = await response.text()
+                        raise TelegramAPIError(f"Telegram API returned {response.status}: {error_text}")
+            except Exception as e:
+                if not isinstance(e, asyncio.CancelledError):
+                    raise
 
     def emit(self, record: logging.LogRecord) -> None:
         """Queue the record for async processing.
@@ -133,17 +143,17 @@ class AsyncTelegramHandler(BaseTelegramHandler):
                 time.sleep(0.1)
 
             if self._loop is not None:
-                if self._task is not None:
-                    # Schedule task cancellation in the event loop
+                try:
+                    # Cancel the task and clean up
+                    if self._task is not None:
+                        self._loop.call_soon_threadsafe(self._task.cancel)
                     future = asyncio.run_coroutine_threadsafe(self._cleanup(), self._loop)
-                    try:
-                        future.result(timeout=5)  # Wait up to 5 seconds
-                    except:  # TimeoutError and others  # noqa: E722
-                        pass
+                    future.result(timeout=5)  # Wait up to 5 seconds
+                except:  # TimeoutError and others  # noqa: E722
+                    pass
 
                 # Stop the event loop
-                if not self._loop.is_closed():
-                    self._loop.call_soon_threadsafe(self._loop.stop)
+                self._loop.call_soon_threadsafe(self._loop.stop)
 
             # Wait for the thread to finish
             if self._thread is not None and self._thread.is_alive():
