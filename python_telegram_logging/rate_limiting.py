@@ -8,7 +8,7 @@ This module implements Telegram's rate limiting rules:
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Protocol, TypeVar
+from typing import Dict, List, Protocol, TypeVar, Union
 
 
 @dataclass
@@ -85,7 +85,7 @@ class BaseRateLimiter(ABC):
             time_provider: Object that provides current time
         """
         self._time_provider = time_provider
-        self._chat_states: Dict[str | int, ChatState] = defaultdict(ChatState)
+        self._chat_states: Dict[Union[str, int], ChatState] = defaultdict(ChatState)
 
     @abstractmethod
     def _acquire_lock(self) -> T:
@@ -99,7 +99,7 @@ class BaseRateLimiter(ABC):
     def _sleep(self, seconds: float) -> None:
         """Sleep for the specified duration."""
 
-    def _check_limits(self, chat_id: str | int) -> None:
+    def _check_limits(self, chat_id: Union[str, int]) -> None:
         """Check and enforce rate limits for a chat.
 
         Args:
@@ -123,7 +123,7 @@ class BaseRateLimiter(ABC):
         # Record the message
         state.record_message(current_time)
 
-    def acquire(self, chat_id: str | int) -> None:
+    def acquire(self, chat_id: Union[str, int]) -> None:
         """Acquire permission to send a message.
 
         This method is thread-safe/coroutine-safe depending on the implementation.

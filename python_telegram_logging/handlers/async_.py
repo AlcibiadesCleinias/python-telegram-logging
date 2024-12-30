@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 from queue import SimpleQueue
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import aiohttp
 
@@ -39,7 +39,7 @@ class AsyncRateLimiter(BaseRateLimiter):
     async def _sleep(self, seconds: float) -> None:
         await asyncio.sleep(seconds)
 
-    async def acquire(self, chat_id: str | int) -> None:
+    async def acquire(self, chat_id: Union[str, int]) -> None:
         """Acquire permission to send a message.
 
         This is an async version of the base class's acquire method.

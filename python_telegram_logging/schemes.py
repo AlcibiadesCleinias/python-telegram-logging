@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import Union
 
 
 class ParseMode(str, Enum):
@@ -28,7 +29,7 @@ class TelegramMessage:
     Additional fields can be added as needed for specific use cases.
     """
 
-    chat_id: str | int
+    chat_id: Union[str, int]
     text: str
     parse_mode: ParseMode
     disable_web_page_preview: bool = True
