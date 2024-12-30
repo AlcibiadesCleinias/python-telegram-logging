@@ -21,7 +21,11 @@ class RetryStrategy(Enum):
 
 @dataclass
 class TelegramMessage:
-    """Schema for a Telegram message."""
+    """Schema for a Telegram message.
+
+    This represents the core fields needed for sending log messages to Telegram.
+    Additional fields can be added as needed for specific use cases.
+    """
 
     chat_id: str | int
     text: str
@@ -31,11 +35,10 @@ class TelegramMessage:
 
     def to_dict(self) -> dict:
         """Convert the message to a dictionary for the Telegram API."""
-        result = {
+        return {
             "chat_id": self.chat_id,
             "text": self.text,
             "parse_mode": self.parse_mode.value,
             "disable_web_page_preview": self.disable_web_page_preview,
             "disable_notification": self.disable_notification,
         }
-        return result
