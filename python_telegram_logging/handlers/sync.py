@@ -1,4 +1,5 @@
 """Synchronous Telegram logging handler."""
+
 import logging
 import time
 from threading import Lock

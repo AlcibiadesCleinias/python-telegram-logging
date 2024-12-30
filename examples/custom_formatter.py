@@ -1,4 +1,5 @@
 """An example of a custom formatter that formats log messages as HTML with custom emojis."""
+
 import logging
 
 from python_telegram_logging.handlers.sync import SyncTelegramHandler

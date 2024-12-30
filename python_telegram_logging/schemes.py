@@ -1,4 +1,5 @@
 """Schema for Telegram API."""
+
 from dataclasses import dataclass
 from enum import Enum, auto
 
