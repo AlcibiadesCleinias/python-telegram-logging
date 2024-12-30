@@ -7,6 +7,7 @@ import pytest
 
 from python_telegram_logging.handlers.async_ import AsyncTelegramHandler
 from python_telegram_logging.handlers.sync import SyncTelegramHandler
+from python_telegram_logging.queue import QueuedTelegramHandler
 from python_telegram_logging.schemes import ParseMode
 
 
@@ -114,3 +115,43 @@ def test_sync_logger_integration(mock_requests):
             # Clean up
             handler.close()
             logger.removeHandler(handler)
+
+
+@pytest.mark.asyncio
+async def test_queue_logger_integration(mock_session):
+    """Test that the queue logger works in both sync and async contexts."""
+    # Set up the logger
+    logger = logging.getLogger("queue_test")
+    logger.setLevel(logging.INFO)
+
+    # Create the underlying async handler
+    base_handler = AsyncTelegramHandler(token="test_token", chat_id="test_chat_id", parse_mode=ParseMode.HTML)
+    base_handler._session = mock_session  # Inject our mock session
+    base_handler._rate_limiter.acquire = AsyncMock()  # Avoid rate limiting in tests
+
+    # Create and configure the queue handler
+    handler = QueuedTelegramHandler(handler=base_handler)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+
+    try:
+        # Run both sync and async operations
+        sync_main(logger)  # Test sync operation
+        await async_main(logger)  # Test async operation
+
+        # Give the background task time to process
+        await asyncio.sleep(0.5)
+
+        # Verify that all messages were sent
+        assert mock_session.post.call_count == 4
+        calls = mock_session.post.call_args_list
+
+        # Check the messages in order
+        assert calls[0].kwargs["json"]["text"] == "Starting sync task"
+        assert calls[1].kwargs["json"]["text"] == "Sync task completed"
+        assert calls[2].kwargs["json"]["text"] == "Starting async task"
+        assert calls[3].kwargs["json"]["text"] == "Async task completed"
+    finally:
+        # Clean up
+        handler.close()  # Queue handler close is synchronous
+        logger.removeHandler(handler)
