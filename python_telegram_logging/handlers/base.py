@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from ..schemes import ParseMode, RetryStrategy
 
@@ -81,7 +81,7 @@ class BaseTelegramHandler(logging.Handler, ABC):
         Subclasses must implement this method.
         """
 
-    def format_message(self, record: logging.LogRecord) -> list[str]:
+    def format_message(self, record: logging.LogRecord) -> List[str]:
         """Format the log record into a list of Telegram messages.
 
         If the message is longer than Telegram's limit (TELEGRAM_MESSAGE_LIMIT characters),

@@ -8,7 +8,7 @@ This module implements Telegram's rate limiting rules:
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Protocol, TypeVar, Union
+from typing import Dict, List, Protocol, Tuple, TypeVar, Union
 
 
 @dataclass
@@ -28,7 +28,7 @@ class ChatState:
         cutoff = current_time - window
         self.message_timestamps = [ts for ts in self.message_timestamps if ts > cutoff]
 
-    def would_exceed_rate_limit(self, current_time: float) -> tuple[bool, float]:
+    def would_exceed_rate_limit(self, current_time: float) -> Tuple[bool, float]:
         """Check if sending a message now would exceed rate limits.
 
         Args:
