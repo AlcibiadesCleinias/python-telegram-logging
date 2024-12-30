@@ -6,6 +6,8 @@ from typing import Any, Callable, Dict, Optional, Union
 
 from ..schemes import ParseMode, RetryStrategy
 
+TELEGRAM_MESSAGE_LIMIT = 4096
+
 
 class BaseTelegramHandler(logging.Handler, ABC):
     """Base class for Telegram logging handlers."""
@@ -57,11 +59,11 @@ class BaseTelegramHandler(logging.Handler, ABC):
     def format_message(self, record: logging.LogRecord) -> list[str]:
         """Format the log record into a list of Telegram messages.
 
-        If the message is longer than Telegram's limit (4096 characters),
+        If the message is longer than Telegram's limit (TELEGRAM_MESSAGE_LIMIT characters),
         it will be split into multiple messages.
         """
         message = self.format(record)
-        return [message[i : i + 4096] for i in range(0, len(message), 4096)]
+        return [message[i : i + TELEGRAM_MESSAGE_LIMIT] for i in range(0, len(message), TELEGRAM_MESSAGE_LIMIT)]
 
     def prepare_payload(self, message: str) -> Dict[str, Any]:
         """Prepare the payload for the Telegram API request."""

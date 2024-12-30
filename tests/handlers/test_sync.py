@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from python_telegram_logging.handlers.base import TELEGRAM_MESSAGE_LIMIT
 from python_telegram_logging.handlers.sync import SyncTelegramHandler
 from python_telegram_logging.schemes import ParseMode
 
@@ -56,9 +57,17 @@ def test_emit_long_message(handler):
     mock_response.ok = True
     mock_response.status_code = 200
 
+    MESSAGE_LENGTH = TELEGRAM_MESSAGE_LIMIT + TELEGRAM_MESSAGE_LIMIT // 2
+
     with patch("python_telegram_logging.handlers.sync.requests.post", return_value=mock_response) as mock_post:
         record = logging.LogRecord(
-            name="test_logger", level=logging.INFO, pathname="test.py", lineno=1, msg="x" * 5000, args=(), exc_info=None
+            name="test_logger",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="x" * MESSAGE_LENGTH,
+            args=(),
+            exc_info=None,
         )
 
         handler.emit(record)
@@ -68,6 +77,6 @@ def test_emit_long_message(handler):
         calls = mock_post.call_args_list
 
         # First chunk
-        assert calls[0].kwargs["json"]["text"] == "x" * 4096
+        assert len(calls[0].kwargs["json"]["text"]) == TELEGRAM_MESSAGE_LIMIT
         # Second chunk
-        assert calls[1].kwargs["json"]["text"] == "x" * 904
+        assert len(calls[1].kwargs["json"]["text"]) == MESSAGE_LENGTH - TELEGRAM_MESSAGE_LIMIT
