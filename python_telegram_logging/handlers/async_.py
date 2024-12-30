@@ -9,28 +9,43 @@ from typing import Any, Optional
 
 import aiohttp
 
-from ..exceptions import TelegramAPIError
+from ..exceptions import RateLimitError, TelegramAPIError
+from ..rate_limiting import BaseRateLimiter, TimeProvider
 from .base import BaseTelegramHandler
 
 
-class AsyncRateLimiter:
+class AsyncTimeProvider(TimeProvider):
+    """Asynchronous time provider using event loop time."""
+
+    def get_time(self) -> float:
+        """Get current time in seconds."""
+        return asyncio.get_event_loop().time()
+
+
+class AsyncRateLimiter(BaseRateLimiter):
     """Rate limiter for asynchronous operations."""
 
     def __init__(self) -> None:
         """Initialize the rate limiter."""
+        super().__init__(AsyncTimeProvider())
         self._lock = asyncio.Lock()
-        self._last_request_time = 0.0
 
-    async def acquire(self) -> None:
-        """Acquire permission to send a message."""
+    def _acquire_lock(self) -> asyncio.Lock:
+        return self._lock
+
+    def _release_lock(self, lock: asyncio.Lock) -> None:
+        lock.release()
+
+    async def _sleep(self, seconds: float) -> None:
+        await asyncio.sleep(seconds)
+
+    async def acquire(self, chat_id: str | int) -> None:
+        """Acquire permission to send a message.
+
+        This is an async version of the base class's acquire method.
+        """
         async with self._lock:
-            current_time = asyncio.get_event_loop().time()
-            time_since_last = current_time - self._last_request_time
-
-            if time_since_last < 1.0:
-                await asyncio.sleep(1.0 - time_since_last)
-
-            self._last_request_time = asyncio.get_event_loop().time()
+            await self._check_limits(chat_id)
 
 
 class AsyncTelegramHandler(BaseTelegramHandler):
@@ -110,9 +125,14 @@ class AsyncTelegramHandler(BaseTelegramHandler):
         for message in messages:
             payload = self.prepare_payload(message)
 
-            await self._rate_limiter.acquire()
+            await self._rate_limiter.acquire(self.chat_id)
             try:
                 async with self._session.post(self._base_url, json=payload) as response:
+                    if response.status == 429:  # Too Many Requests
+                        error_data = await response.json()
+                        retry_after = error_data.get("retry_after", 1)
+                        raise RateLimitError(f"Rate limit exceeded. Retry after {retry_after} seconds.")
+
                     if not response.ok:
                         error_text = await response.text()
                         raise TelegramAPIError(f"Telegram API returned {response.status}: {error_text}")

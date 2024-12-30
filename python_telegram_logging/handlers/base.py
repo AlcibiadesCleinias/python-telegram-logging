@@ -10,7 +10,19 @@ TELEGRAM_MESSAGE_LIMIT = 4096
 
 
 class BaseTelegramHandler(logging.Handler, ABC):
-    """Base class for Telegram logging handlers."""
+    """Base class for Telegram logging handlers.
+
+    This handler implements Telegram's rate limiting rules:
+    - In a single chat: Maximum 1 message per second
+    - In groups: Maximum 20 messages per minute
+
+    Rate limiting is handled automatically by the handler. If a rate limit
+    is exceeded, the handler will wait the appropriate amount of time before
+    sending the next message.
+
+    For group chats, messages are limited to 20 per minute across all bots
+    in the group. The handler will automatically wait if this limit is reached.
+    """
 
     def __init__(
         self,
@@ -28,13 +40,12 @@ class BaseTelegramHandler(logging.Handler, ABC):
         Args:
             token: Telegram bot token
             chat_id: Target chat ID
-            parse_mode: Message parsing mode
-            disable_web_page_preview: Whether to disable web page previews
-            disable_notification: Whether to disable notifications
-            retry_strategy: Strategy for handling rate limits
+            parse_mode: Message parsing mode (default: HTML)
+            disable_web_page_preview: Whether to disable web page previews (default: True)
+            disable_notification: Whether to disable notifications (default: False)
+            retry_strategy: Strategy for handling rate limits (default: EXPONENTIAL_BACKOFF)
             error_callback: Optional callback for handling errors
-            level: Minimum logging level
-        TODO: implement retry_strategy
+            level: Minimum logging level (default: NOTSET)
         """
         super().__init__(level)
         self.token = token
@@ -50,23 +61,50 @@ class BaseTelegramHandler(logging.Handler, ABC):
 
     @abstractmethod
     def _create_rate_limiter(self) -> Any:
-        """Create and return a rate limiter instance."""
+        """Create and return a rate limiter instance.
+
+        This method should be implemented by subclasses to return either
+        a SyncRateLimiter or AsyncRateLimiter instance.
+        """
 
     @abstractmethod
     def emit(self, record: logging.LogRecord) -> None:
-        """Send the log record to Telegram."""
+        """Send the log record to Telegram.
+
+        This method should handle:
+        1. Formatting the message
+        2. Splitting long messages if needed
+        3. Rate limiting
+        4. Making the actual API calls
+        5. Error handling
+
+        Subclasses must implement this method.
+        """
 
     def format_message(self, record: logging.LogRecord) -> list[str]:
         """Format the log record into a list of Telegram messages.
 
         If the message is longer than Telegram's limit (TELEGRAM_MESSAGE_LIMIT characters),
         it will be split into multiple messages.
+
+        Args:
+            record: The log record to format
+
+        Returns:
+            List of message strings, each under TELEGRAM_MESSAGE_LIMIT characters
         """
         message = self.format(record)
         return [message[i : i + TELEGRAM_MESSAGE_LIMIT] for i in range(0, len(message), TELEGRAM_MESSAGE_LIMIT)]
 
     def prepare_payload(self, message: str) -> Dict[str, Any]:
-        """Prepare the payload for the Telegram API request."""
+        """Prepare the payload for the Telegram API request.
+
+        Args:
+            message: The message text to send
+
+        Returns:
+            Dictionary containing the API request payload
+        """
         return {
             "chat_id": self.chat_id,
             "text": message,
@@ -76,7 +114,14 @@ class BaseTelegramHandler(logging.Handler, ABC):
         }
 
     def handle_error(self, error: Exception) -> None:
-        """Handle any errors that occur while sending messages."""
+        """Handle any errors that occur while sending messages.
+
+        If an error_callback was provided, it will be called with the error.
+        Any exceptions in the callback are silently ignored.
+
+        Args:
+            error: The exception that occurred
+        """
         if self.error_callback:
             try:
                 self.error_callback(error)

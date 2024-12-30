@@ -7,27 +7,35 @@ from typing import Any
 import requests
 
 from ..exceptions import RateLimitError, TelegramAPIError
+from ..rate_limiting import BaseRateLimiter, TimeProvider
 from .base import BaseTelegramHandler
 
 
-class SyncRateLimiter:
+class SyncTimeProvider(TimeProvider):
+    """Synchronous time provider using time.time()."""
+
+    def get_time(self) -> float:
+        """Get current time in seconds."""
+        return time.time()
+
+
+class SyncRateLimiter(BaseRateLimiter):
     """Thread-safe rate limiter for synchronous operations."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the rate limiter."""
+        super().__init__(SyncTimeProvider())
         self._lock = Lock()
-        self._last_request_time = 0.0
 
-    def acquire(self) -> None:
-        """Acquire permission to send a message."""
-        with self._lock:
-            current_time = time.time()
-            time_since_last = current_time - self._last_request_time
+    def _acquire_lock(self) -> Lock:
+        self._lock.acquire()
+        return self._lock
 
-            if time_since_last < 1.0:
-                time.sleep(1.0 - time_since_last)
+    def _release_lock(self, lock: Lock) -> None:
+        lock.release()
 
-            self._last_request_time = time.time()
+    def _sleep(self, seconds: float) -> None:
+        time.sleep(seconds)
 
 
 class SyncTelegramHandler(BaseTelegramHandler):
@@ -42,17 +50,17 @@ class SyncTelegramHandler(BaseTelegramHandler):
             messages = self.format_message(record)
 
             for message in messages:
-                self._rate_limiter.acquire()
                 payload = self.prepare_payload(message)
+                self._rate_limiter.acquire(self.chat_id)
 
                 response = requests.post(self._base_url, json=payload)
 
                 if response.status_code == 429:
                     retry_after = response.json().get("retry_after", 1)
-                    raise RateLimitError(retry_after)
+                    raise RateLimitError(f"Rate limit exceeded. Retry after {retry_after} seconds.")
 
                 if not response.ok:
-                    raise TelegramAPIError(response.status_code, response.text)
+                    raise TelegramAPIError(f"Telegram API returned {response.status_code}: {response.text}")
 
         except Exception as e:
             self.handle_error(e)
