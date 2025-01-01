@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required for proper version detection with hatch-vcs
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: pip
+        cache-dependency-path: pyproject.toml
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install .[dev]
+
+    - name: Run tests with pytest
+      run: |
+        pytest --cov=python_telegram_logging --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+        cache: pip
+        cache-dependency-path: pyproject.toml
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install .[dev]
+        pip install pre-commit
+
+    - name: Cache pre-commit hooks
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pre-commit
+        key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+    - name: Run pre-commit hooks
+      run: pre-commit run --all-files
+
+    # - name: Type check with mypy
+    #   run: |
+    #     mypy python_telegram_logging --config-file pyproject.toml

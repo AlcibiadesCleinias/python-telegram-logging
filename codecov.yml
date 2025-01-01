@@ -1,0 +1,5 @@
+comment:
+  layout: " diff, flags, files"
+  behavior: default
+  require_changes: true  # if true: only post the comment if coverage changes
+  require_base: true        # [true :: must have a base report to post]
