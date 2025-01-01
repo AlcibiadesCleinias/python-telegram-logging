@@ -34,12 +34,15 @@ jobs:
       run: |
         pytest --cov=python_telegram_logging --cov-report=xml --cov-report=term-missing
 
-    # TODO: debug
-    # - name: Upload coverage to Codecov
-    #   uses: codecov/codecov-action@v3
-    #   with:
-    #     file: ./coverage.xml
-    #     fail_ci_if_error: true
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}  # Required for private repos and rate limit handling
+        file: ./coverage.xml
+        fail_ci_if_error: true
+        verbose: true  # Optional: print upload details
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}  # Also set in env for better compatibility
 
   lint:
     runs-on: ubuntu-latest
