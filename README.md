@@ -198,3 +198,15 @@ handler = SyncTelegramHandler(
 ## License
 
 MIT License
+
+## TODO
+
+- [ ] what if queue is full?
+> Notes:
+> Configurable blocking behavior: Added block_on_full option to either block when the queue is full or continue with alternative handling.
+> Selective message dropping: Added discard_level_on_full to allow dropping less important messages (e.g., DEBUG) while ensuring critical messages (ERROR, CRITICAL) are handled.
+> Timeout control: Added timeout parameter to prevent indefinite blocking if block_on_full is True.
+> Default behavior: By default, it will:
+> - Not block (block_on_full=False)
+> - Silently drop DEBUG messages when full
+> - Call handleError() for more important messages
