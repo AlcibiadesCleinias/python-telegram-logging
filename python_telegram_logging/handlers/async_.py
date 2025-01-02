@@ -39,6 +39,30 @@ class AsyncRateLimiter(BaseRateLimiter):
     async def _sleep(self, seconds: float) -> None:
         await asyncio.sleep(seconds)
 
+    async def _check_limits(self, chat_id: Union[str, int]) -> None:
+        """Check and enforce rate limits for a chat.
+
+        Args:
+            chat_id: The chat ID to check
+
+        Raises:
+            RateLimitError: If rate limits would be exceeded
+        """
+        current_time = self._time_provider.get_time()
+        state = self._chat_states[chat_id]
+
+        # Clean up old messages
+        state.clean_old_messages(current_time)
+
+        # Check if we would exceed limits
+        would_exceed, wait_time = state.would_exceed_rate_limit(current_time)
+        if would_exceed:
+            await self._sleep(wait_time)
+            current_time = self._time_provider.get_time()
+
+        # Record the message
+        state.record_message(current_time)
+
     async def acquire(self, chat_id: Union[str, int]) -> None:
         """Acquire permission to send a message.
 
@@ -134,11 +158,11 @@ class AsyncTelegramHandler(BaseTelegramHandler, BaseQueueHandler):
                     if response.status == 429:  # Too Many Requests
                         error_data = await response.json()
                         retry_after = error_data.get("retry_after", 1)
-                        raise RateLimitError(f"Rate limit exceeded. Retry after {retry_after} seconds.")
+                        raise RateLimitError(retry_after)
 
                     if not response.ok:
                         error_text = await response.text()
-                        raise TelegramAPIError(f"Telegram API returned {response.status}: {error_text}")
+                        raise TelegramAPIError(status_code=response.status, response_text=error_text)
             except Exception as e:
                 if not isinstance(e, asyncio.CancelledError):
                     raise
