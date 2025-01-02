@@ -5,8 +5,8 @@ import threading
 from typing import Optional
 
 from python_telegram_logging.handlers.async_ import AsyncTelegramHandler
-from python_telegram_logging.handlers.base import BaseTelegramHandler
 from python_telegram_logging.handlers.base_queue import BaseQueueHandler
+from python_telegram_logging.handlers.base_telegram import BaseTelegramHandler
 
 
 class QueuedTelegramHandler(BaseQueueHandler):

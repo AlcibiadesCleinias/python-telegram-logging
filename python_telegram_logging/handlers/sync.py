@@ -9,7 +9,7 @@ import requests
 
 from ..exceptions import RateLimitError, TelegramAPIError
 from ..rate_limiting import BaseRateLimiter, TimeProvider
-from .base import BaseTelegramHandler
+from .base_telegram import BaseTelegramHandler
 
 
 class SyncTimeProvider(TimeProvider):

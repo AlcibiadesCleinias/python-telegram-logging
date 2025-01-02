@@ -10,8 +10,8 @@ import aiohttp
 
 from ..exceptions import RateLimitError, TelegramAPIError
 from ..rate_limiting import BaseRateLimiter, TimeProvider
-from .base import BaseTelegramHandler
 from .base_queue import BaseQueueHandler
+from .base_telegram import BaseTelegramHandler
 
 
 class AsyncTimeProvider(TimeProvider):
@@ -72,18 +72,8 @@ class AsyncTelegramHandler(BaseTelegramHandler, BaseQueueHandler):
         return AsyncRateLimiter()
 
     def emit(self, record: logging.LogRecord) -> None:
-        """Put the record into the queue.
-
-        This method is called by the logging framework and must be synchronous.
-        The actual sending happens in the background task.
-        """
-        if self._shutdown.is_set():
-            return
-
-        try:
-            self.queue.put_nowait(record)
-        except:  # Queue.Full and others  # noqa: E722
-            self.handleError(record)
+        """Emit a record."""
+        return BaseQueueHandler.emit(self, record)
 
     def _start_background_processing(self) -> None:
         """Start the background processing thread and async task."""

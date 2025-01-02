@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from python_telegram_logging.handlers.base import TELEGRAM_MESSAGE_LIMIT
+from python_telegram_logging.handlers.base_telegram import TELEGRAM_MESSAGE_LIMIT
 from python_telegram_logging.handlers.sync import SyncTelegramHandler
 from python_telegram_logging.schemes import ParseMode
 
