@@ -4,9 +4,9 @@ import logging
 import threading
 from typing import Optional
 
-from .handlers.async_ import AsyncTelegramHandler
-from .handlers.base import BaseTelegramHandler
-from .handlers.base_queue import BaseQueueHandler
+from python_telegram_logging.handlers.async_ import AsyncTelegramHandler
+from python_telegram_logging.handlers.base import BaseTelegramHandler
+from python_telegram_logging.handlers.base_queue import BaseQueueHandler
 
 
 class QueuedTelegramHandler(BaseQueueHandler):
@@ -34,7 +34,7 @@ class QueuedTelegramHandler(BaseQueueHandler):
         """
         if isinstance(handler, AsyncTelegramHandler):
             raise ValueError(
-                "AsyncTelegramHandler already includes queue functionality. "
+                "[QueuedTelegramHandler] AsyncTelegramHandler already includes queue functionality. "
                 "Use it directly instead of wrapping it in QueuedTelegramHandler."
             )
 

@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from python_telegram_logging.handlers.async_ import AsyncTelegramHandler
+from python_telegram_logging.handlers.queue import QueuedTelegramHandler
 from python_telegram_logging.handlers.sync import SyncTelegramHandler
-from python_telegram_logging.queue import QueuedTelegramHandler
 from python_telegram_logging.schemes import ParseMode
 
 
