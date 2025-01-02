@@ -1,3 +1,5 @@
+"""Integration tests for the logging handlers."""
+
 import asyncio
 import logging
 import time
@@ -49,7 +51,7 @@ async def async_main(logger: logging.Logger):
 def sync_main(logger: logging.Logger):
     """Simulate a sync application using the logger."""
     logger.info("Starting sync task")
-    time.sleep(0.1)  # Simulate some work
+    time.sleep(0.2)  # Simulate some work and ensure first message is processed
     logger.info("Sync task completed")
 
 
@@ -88,7 +90,7 @@ async def test_async_logger_integration(mock_session):
 
 
 def test_sync_logger_integration(mock_requests):
-    """Test that the sync logger works in a synchronous application."""
+    """Test that the sync logger works in a sync application."""
     # Set up the logger
     logger = logging.getLogger("sync_test")
     logger.setLevel(logging.INFO)
@@ -117,41 +119,37 @@ def test_sync_logger_integration(mock_requests):
             logger.removeHandler(handler)
 
 
-@pytest.mark.asyncio
-async def test_queue_logger_integration(mock_session):
-    """Test that the queue logger works in both sync and async contexts."""
+def test_queue_logger_integration(mock_requests):
+    """Test that the queue logger works with sync handler."""
     # Set up the logger
     logger = logging.getLogger("queue_test")
     logger.setLevel(logging.INFO)
 
-    # Create the underlying async handler
-    base_handler = AsyncTelegramHandler(token="test_token", chat_id="test_chat_id", parse_mode=ParseMode.HTML)
-    base_handler._session = mock_session  # Inject our mock session
-    base_handler._rate_limiter.acquire = AsyncMock()  # Avoid rate limiting in tests
+    # Create the underlying sync handler
+    base_handler = SyncTelegramHandler(token="test_token", chat_id="test_chat_id", parse_mode=ParseMode.HTML)
+    base_handler.setFormatter(logging.Formatter("%(message)s"))
 
     # Create and configure the queue handler
     handler = QueuedTelegramHandler(handler=base_handler)
-    handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(handler)
 
-    try:
-        # Run both sync and async operations
-        sync_main(logger)  # Test sync operation
-        await async_main(logger)  # Test async operation
+    # Mock requests.post to return our mock response
+    with patch("requests.post", return_value=mock_requests) as mock_post:
+        try:
+            # Run our sync application
+            sync_main(logger)
 
-        # Give the background task time to process
-        await asyncio.sleep(0.5)
+            # Give the worker thread time to process
+            time.sleep(1.0)  # Increased wait time to ensure both messages are processed
 
-        # Verify that all messages were sent
-        assert mock_session.post.call_count == 4
-        calls = mock_session.post.call_args_list
+            # Verify that both messages were sent
+            assert mock_post.call_count == 2, f"Expected 2 messages, got {mock_post.call_count}"
+            calls = mock_post.call_args_list
 
-        # Check the messages in order
-        assert calls[0].kwargs["json"]["text"] == "Starting sync task"
-        assert calls[1].kwargs["json"]["text"] == "Sync task completed"
-        assert calls[2].kwargs["json"]["text"] == "Starting async task"
-        assert calls[3].kwargs["json"]["text"] == "Async task completed"
-    finally:
-        # Clean up
-        handler.close()  # Queue handler close is synchronous
-        logger.removeHandler(handler)
+            # Check the messages in order
+            assert calls[0].kwargs["json"]["text"] == "Starting sync task"
+            assert calls[1].kwargs["json"]["text"] == "Sync task completed"
+        finally:
+            # Clean up
+            handler.close()  # Queue handler close is synchronous
+            logger.removeHandler(handler)

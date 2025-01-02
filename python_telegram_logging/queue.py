@@ -1,14 +1,20 @@
-"""Queue-based handler for asynchronous logging to Telegram."""
+"""Queue-based handler for synchronous logging to Telegram."""
 
 import logging
-import queue
 import threading
+from typing import Optional
 
+from .handlers.async_ import AsyncTelegramHandler
 from .handlers.base import BaseTelegramHandler
+from .handlers.base_queue import BaseQueueHandler
 
 
-class QueuedTelegramHandler(logging.Handler):
-    """A handler that queues log records and sends them to Telegram in a separate thread."""
+class QueuedTelegramHandler(BaseQueueHandler):
+    """A handler that queues log records and sends them to Telegram in a separate thread.
+
+    This handler is designed to work with synchronous handlers only. For asynchronous
+    handlers, use AsyncTelegramHandler directly as it already includes queue functionality.
+    """
 
     def __init__(
         self,
@@ -19,26 +25,28 @@ class QueuedTelegramHandler(logging.Handler):
         """Initialize the handler.
 
         Args:
-            handler: The underlying Telegram handler
+            handler: The underlying Telegram handler (must be synchronous)
             queue_size: Maximum number of records in the queue
             level: Minimum logging level
+
+        Raises:
+            ValueError: If an async handler is provided
         """
-        super().__init__(level)
+        if isinstance(handler, AsyncTelegramHandler):
+            raise ValueError(
+                "AsyncTelegramHandler already includes queue functionality. "
+                "Use it directly instead of wrapping it in QueuedTelegramHandler."
+            )
+
+        super().__init__(queue_size=queue_size, level=level)
         self.handler = handler
-        self.queue = queue.Queue(maxsize=queue_size)
-        self._shutdown = threading.Event()
+        self._worker: Optional[threading.Thread] = None
+        self._start_worker()
+
+    def _start_worker(self) -> None:
+        """Start the worker thread."""
         self._worker = threading.Thread(target=self._process_queue, daemon=True)
         self._worker.start()
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """Put the record into the queue."""
-        if self._shutdown.is_set():
-            return
-
-        try:
-            self.queue.put(record)
-        except queue.Full:
-            self.handleError(record)
 
     def _process_queue(self) -> None:
         """Process records from the queue."""
@@ -51,19 +59,19 @@ class QueuedTelegramHandler(logging.Handler):
                     self.handleError(record)
                 finally:
                     self.queue.task_done()
-            except queue.Empty:
+            except:  # Queue.Empty and others  # noqa: E722
                 continue
 
     def close(self) -> None:
         """Stop the worker thread and close the queue."""
-        self._shutdown.set()
-        if self._worker.is_alive():
-            self._worker.join()
+        super().close()
+        if self._worker is not None and self._worker.is_alive():
+            self._worker.join(timeout=5)
         while not self.queue.empty():
             try:
                 self.queue.get_nowait()
                 self.queue.task_done()
-            except queue.Empty:
+            except:  # Queue.Empty and others  # noqa: E722
                 break
         self.queue.join()
-        super().close()
+        self.handler.close()

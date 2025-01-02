@@ -4,7 +4,6 @@ import asyncio
 import logging
 import threading
 import time
-from queue import SimpleQueue
 from typing import Any, Optional, Union
 
 import aiohttp
@@ -12,6 +11,7 @@ import aiohttp
 from ..exceptions import RateLimitError, TelegramAPIError
 from ..rate_limiting import BaseRateLimiter, TimeProvider
 from .base import BaseTelegramHandler
+from .base_queue import BaseQueueHandler
 
 
 class AsyncTimeProvider(TimeProvider):
@@ -48,7 +48,7 @@ class AsyncRateLimiter(BaseRateLimiter):
             await self._check_limits(chat_id)
 
 
-class AsyncTelegramHandler(BaseTelegramHandler):
+class AsyncTelegramHandler(BaseTelegramHandler, BaseQueueHandler):
     """Asynchronous Telegram logging handler.
 
     This handler uses a queue to buffer messages and processes them
@@ -56,21 +56,34 @@ class AsyncTelegramHandler(BaseTelegramHandler):
     the synchronous logging framework while still allowing async HTTP calls.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, queue_size: int = 1000, **kwargs):
         """Initialize the handler."""
-        super().__init__(*args, **kwargs)
+        BaseTelegramHandler.__init__(self, *args, **kwargs)
+        BaseQueueHandler.__init__(self, queue_size=queue_size, level=kwargs.get("level", logging.NOTSET))
         self._session: Optional[aiohttp.ClientSession] = None
-        self._queue: SimpleQueue = SimpleQueue()
         self._task: Optional[asyncio.Task] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
-        self._stopping = threading.Event()
 
         # Start the background processing
         self._start_background_processing()
 
     def _create_rate_limiter(self) -> Any:
         return AsyncRateLimiter()
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Put the record into the queue.
+
+        This method is called by the logging framework and must be synchronous.
+        The actual sending happens in the background task.
+        """
+        if self._shutdown.is_set():
+            return
+
+        try:
+            self.queue.put_nowait(record)
+        except:  # Queue.Full and others  # noqa: E722
+            self.handleError(record)
 
     def _start_background_processing(self) -> None:
         """Start the background processing thread and async task."""
@@ -82,10 +95,8 @@ class AsyncTelegramHandler(BaseTelegramHandler):
                 self._task = self._loop.create_task(self._process_queue())
                 self._loop.run_forever()
             except Exception:
-                # Log any errors that occur in the background thread
                 self.handleError(None)  # type: ignore
             finally:
-                # Clean up the event loop
                 try:
                     if self._loop is not None:
                         # Cancel all tasks
@@ -102,11 +113,11 @@ class AsyncTelegramHandler(BaseTelegramHandler):
 
     async def _process_queue(self) -> None:
         """Process records from the queue."""
-        while not self._stopping.is_set() or not self._queue.empty():
+        while not self._shutdown.is_set() or not self.queue.empty():
             try:
-                record = self._queue.get_nowait()
+                record = self.queue.get_nowait()
             except:  # Queue.Empty and others  # noqa: E722
-                if self._stopping.is_set():
+                if self._shutdown.is_set():
                     break
                 await asyncio.sleep(0.1)
                 continue
@@ -115,6 +126,8 @@ class AsyncTelegramHandler(BaseTelegramHandler):
                 await self._async_emit(record)
             except Exception:
                 self.handleError(record)  # type: ignore
+            finally:
+                self.queue.task_done()
 
     async def _async_emit(self, record: logging.LogRecord) -> None:
         """Actually emit the record asynchronously."""
@@ -140,26 +153,15 @@ class AsyncTelegramHandler(BaseTelegramHandler):
                 if not isinstance(e, asyncio.CancelledError):
                     raise
 
-    def emit(self, record: logging.LogRecord) -> None:
-        """Queue the record for async processing.
-
-        This method is called by the logging framework and must be synchronous.
-        The actual sending happens in the background task.
-        """
-        try:
-            self._queue.put_nowait(record)
-        except Exception:
-            self.handleError(record)  # type: ignore
-
     def close(self) -> None:
         """Close the handler and clean up resources synchronously."""
-        if not self._stopping.is_set():
-            self._stopping.set()
+        if not self._shutdown.is_set():
+            self._shutdown.set()
 
             # Wait for the queue to be empty
             timeout = 5  # seconds
             start_time = time.time()
-            while not self._queue.empty() and time.time() - start_time < timeout:
+            while not self.queue.empty() and time.time() - start_time < timeout:
                 time.sleep(0.1)
 
             if self._loop is not None:

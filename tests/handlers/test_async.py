@@ -1,3 +1,5 @@
+"""Test the async handler."""
+
 import logging
 import time
 from unittest.mock import AsyncMock
@@ -40,6 +42,9 @@ def test_handler_initialization(handler):
     assert handler.token == "test_token"
     assert handler.chat_id == "test_chat_id"
     assert handler.parse_mode == ParseMode.HTML
+    assert handler._thread is not None
+    assert handler._thread.is_alive()
+    assert handler.queue is not None
 
 
 def test_emit(handler, mock_session):
@@ -73,46 +78,6 @@ def test_emit(handler, mock_session):
     )
 
 
-# TODO: resolve mocking, or do not use async context manager in async_ client.
-# def test_emit_long_message(handler, mock_session):
-#     """Test that long messages are split and queued correctly."""
-#     # Set the session directly
-#     handler._session = mock_session
-
-#     # Mock the rate limiter to avoid delays
-#     handler._rate_limiter.acquire = AsyncMock()
-
-#     # Mock format_message to return split messages
-#     first_chunk = "x" * 4096
-#     second_chunk = "x" * 904
-#     handler.format_message = Mock(return_value=[first_chunk, second_chunk])
-
-#     record = logging.LogRecord(
-#         name="test_logger",
-#         level=logging.INFO,
-#         pathname="test.py",
-#         lineno=1,
-#         msg="x" * 5000,
-#         args=(),
-#         exc_info=None
-#     )
-
-#     # Emit should be synchronous and just queue the record
-#     handler.emit(record)
-
-#     # Give the background task time to process
-#     time.sleep(0.5)  # Increased sleep time to ensure processing
-
-#     # Should make two API calls for the split message
-#     assert mock_session.post.call_count == 2
-#     calls = mock_session.post.call_args_list
-
-#     # First chunk
-#     assert calls[0].kwargs['json']['text'] == "x" * 4096
-#     # Second chunk
-#     assert calls[1].kwargs['json']['text'] == "x" * 904
-
-
 def test_close(handler, mock_session):
     """Test that close properly shuts down the background task."""
     # Set the session directly
@@ -122,7 +87,7 @@ def test_close(handler, mock_session):
     handler.close()
 
     # Verify the background task was stopped
-    assert handler._stopping.is_set()
+    assert handler._shutdown.is_set()
     # Verify the thread was stopped
     assert not handler._thread.is_alive()
 
