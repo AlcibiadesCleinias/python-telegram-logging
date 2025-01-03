@@ -32,14 +32,10 @@ jobs:
 
     - name: Run tests with pytest
       run: |
+        coverage erase
         coverage run --source=python_telegram_logging -m pytest tests/
-        coverage report
+        coverage combine || true
         coverage xml
-
-    # TODO: debug
-    - name: Echo coverage report
-      run: |
-        cat ./coverage.xml
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
