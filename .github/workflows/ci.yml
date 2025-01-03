@@ -32,7 +32,7 @@ jobs:
 
     - name: Run tests with pytest
       run: |
-        pytest --cov-report=xml
+        pytest --cov=python_telegram_logging --cov-report=xml tests/
 
     # TODO: debug
     - name: Echo coverage report
