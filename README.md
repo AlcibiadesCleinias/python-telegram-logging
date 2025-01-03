@@ -25,6 +25,7 @@ A Python logging handler that sends logs to Telegram with support for both synch
 - [Technical Details](#technical-details)
 - [Requirements](#requirements)
 - [License](#license)
+- [TODO](#todo)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -54,6 +55,8 @@ pip install python-telegram-logging
 ```
 
 ## Quick Start
+
+Use one of the exanple below or check [examples](examples) folder.
 
 ### Synchronous Usage
 
