@@ -1,15 +1,10 @@
 # Python Telegram Logging
 
-[![PyPI version](https://badge.fury.io/py/python-telegram-logging.svg)](https://badge.fury.io/py/
-python-telegram-logging)
-[![CI](https://github.com/alcibiadescleinias/python-telegram-logging/actions/workflows/ci.yml/badge.svg)]
-(https://github.com/alcibiadescleinias/python-telegram-logging/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/alcibiadescleinias/python-telegram-logging/branch/main/graph/badge.svg)]
-(https://codecov.io/gh/alcibiadescleinias/python-telegram-logging)
-[![Python Versions](https://img.shields.io/pypi/pyversions/python-telegram-logging.svg)](https://
-pypi.org/project/python-telegram-logging/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/
-licenses/MIT)
+[![PyPI version](https://badge.fury.io/py/python-telegram-logging.svg)](https://badge.fury.io/py/python-telegram-logging)
+[![CI](https://github.com/alcibiadescleinias/python-telegram-logging/actions/workflows/ci.yml/badge.svg)](https://github.com/alcibiadescleinias/python-telegram-logging/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/alcibiadescleinias/python-telegram-logging/branch/main/graph/badge.svg)](https://codecov.io/gh/alcibiadescleinias/python-telegram-logging)
+[![Python Versions](https://img.shields.io/pypi/pyversions/python-telegram-logging.svg)](https://pypi.org/project/python-telegram-logging/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Python logging handler that sends logs to Telegram with support for both synchronous and asynchronous operations.
 
@@ -22,7 +17,7 @@ A Python logging handler that sends logs to Telegram with support for both synch
 - [Quick Start](#quick-start)
   - [Synchronous Usage](#synchronous-usage)
   - [Asynchronous Usage](#asynchronous-usage)
-  - [Queued Usage (for high-performance applications)](#queued-usage-for-high-performance-applications)
+  - [Queued Usage (for synchronous handlers)](#queued-usage-for-synchronous-handlers)
 - [Advanced Usage](#advanced-usage)
   - [Custom Formatting](#custom-formatting)
   - [Error Handling](#error-handling)
@@ -37,8 +32,8 @@ A Python logging handler that sends logs to Telegram with support for both synch
 
 - 🚀 **Multiple Handler Types**:
   - `SyncTelegramHandler`: Synchronous handler using `requests`
-  - `AsyncTelegramHandler`: Asynchronous handler using `aiohttp`
-  - `QueuedTelegramHandler`: Thread-safe queued handler for improved performance
+  - `AsyncTelegramHandler`: Asynchronous handler with built-in queue using `aiohttp`
+  - `QueuedTelegramHandler`: Thread-safe queued wrapper for synchronous handlers only (currently)
 
 - 🔒 **Thread Safety**: All handlers are thread-safe and can be used in multi-threaded applications
 
@@ -104,20 +99,22 @@ logger.addHandler(handler)
 logger.info("Hello from async Python! 🐍")
 ```
 
-### Queued Usage (for high-performance applications)
+### Queued Usage (for synchronous handlers)
+
+> ⚠️ **Important**: `QueuedTelegramHandler` is designed to work with synchronous handlers only. For asynchronous applications, use `AsyncTelegramHandler` directly as it already includes queue functionality.
 
 ```python
 import logging
-from python_telegram_logging import AsyncTelegramHandler, QueuedTelegramHandler, ParseMode
+from python_telegram_logging import SyncTelegramHandler, QueuedTelegramHandler, ParseMode
 
-# Create the base handler
-base_handler = AsyncTelegramHandler(
+# Create the base synchronous handler
+base_handler = SyncTelegramHandler(
     token="YOUR_BOT_TOKEN",
     chat_id="YOUR_CHAT_ID",
     parse_mode=ParseMode.HTML
 )
 
-# Wrap it in a queued handler
+# Wrap it in a queued handler for non-blocking operation
 handler = QueuedTelegramHandler(base_handler, queue_size=1000)
 
 # Add it to your logger
@@ -179,8 +176,10 @@ handler = SyncTelegramHandler(
 | Blocking | Yes | No | No |
 | Thread-Safe | Yes | Yes | Yes |
 | Dependencies | requests | aiohttp | - |
-| Use Case | Simple scripts | Async applications | High-performance apps |
+| Use Case | Simple scripts | Async applications | High-performance sync apps |
 | Message Order | Guaranteed | Best-effort | Best-effort |
+| Queue Support | No | Built-in | Yes (sync handlers only) |
+| Handler Type | Sync | Async | Sync wrapper |
 
 ## Technical Details
 
@@ -199,3 +198,15 @@ handler = SyncTelegramHandler(
 ## License
 
 MIT License
+
+## TODO
+
+- [ ] what if queue is full?
+> Notes:
+> Configurable blocking behavior: Added block_on_full option to either block when the queue is full or continue with alternative handling.
+> Selective message dropping: Added discard_level_on_full to allow dropping less important messages (e.g., DEBUG) while ensuring critical messages (ERROR, CRITICAL) are handled.
+> Timeout control: Added timeout parameter to prevent indefinite blocking if block_on_full is True.
+> Default behavior: By default, it will:
+> - Not block (block_on_full=False)
+> - Silently drop DEBUG messages when full
+> - Call handleError() for more important messages

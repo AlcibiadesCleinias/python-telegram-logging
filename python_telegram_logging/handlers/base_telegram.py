@@ -46,6 +46,8 @@ class BaseTelegramHandler(logging.Handler, ABC):
             retry_strategy: Strategy for handling rate limits (default: EXPONENTIAL_BACKOFF)
             error_callback: Optional callback for handling errors
             level: Minimum logging level (default: NOTSET)
+
+        TODO: add implementation for retry_strategy.
         """
         super().__init__(level)
         self.token = token

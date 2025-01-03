@@ -9,7 +9,7 @@ import requests
 
 from ..exceptions import RateLimitError, TelegramAPIError
 from ..rate_limiting import BaseRateLimiter, TimeProvider
-from .base import BaseTelegramHandler
+from .base_telegram import BaseTelegramHandler
 
 
 class SyncTimeProvider(TimeProvider):
@@ -58,10 +58,10 @@ class SyncTelegramHandler(BaseTelegramHandler):
 
                 if response.status_code == 429:
                     retry_after = response.json().get("retry_after", 1)
-                    raise RateLimitError(f"Rate limit exceeded. Retry after {retry_after} seconds.")
+                    raise RateLimitError(retry_after)
 
                 if not response.ok:
-                    raise TelegramAPIError(f"Telegram API returned {response.status_code}: {response.text}")
+                    raise TelegramAPIError(status_code=response.status, response_text=response.text)
 
         except Exception as e:
             self.handle_error(e)
