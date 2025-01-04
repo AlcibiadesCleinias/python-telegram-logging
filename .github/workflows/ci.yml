@@ -34,13 +34,18 @@ jobs:
       run: |
         coverage erase
         coverage run --source=python_telegram_logging -m pytest tests/
-        coverage combine || true
-        coverage xml
+
+
+    #  TODO: resolve this hack for v5 cov upload lib.
+    - name: Rename to custom_coverage (to prepare to upload)
+      run: |
+        mv ./coverage.xml ./custom_coverage.xml
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v4
       with:
-        files: ./coverage.xml
+        files: ./custom_coverage.xml
+        disable_search: true
         token: ${{ secrets.CODECOV_TOKEN }}
 
   lint:
