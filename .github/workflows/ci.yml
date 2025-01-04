@@ -37,6 +37,10 @@ jobs:
         coverage combine || true
         coverage xml
 
+    - name: Echo coverage report
+      run: |
+        cat ./coverage.xml
+
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
       with:
