@@ -34,7 +34,6 @@ jobs:
       run: |
         coverage erase
         coverage run --source=python_telegram_logging -m pytest tests/
-        coverage combine || true
         coverage xml
 
     - name: Echo coverage report
