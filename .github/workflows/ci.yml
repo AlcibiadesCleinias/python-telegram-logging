@@ -33,7 +33,8 @@ jobs:
     - name: Run tests with pytest
       run: |
         coverage erase
-        coverage run --source=python_telegram_logging -m pytest tests/ && coverage --source=python_telegram_logging xml -o custom_coverage.xml
+        coverage run --source=python_telegram_logging --cov-report=xml:custom_coverage.xml -m pytest tests/
+
 
     - name: Echo coverage report
       run: |
