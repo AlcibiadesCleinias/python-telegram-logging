@@ -12,7 +12,7 @@ A Python logging handler that sends logs to Telegram with support for both synch
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**
 
-- [Who is This Package For?](#who-is-this-package-for)
+- [Who is Target User?](#who-is-target-user)
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -30,7 +30,7 @@ A Python logging handler that sends logs to Telegram with support for both synch
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-## Who is This Package For?
+## Who is Target User?
 
 This package is ideal for developers with simple Python applications who want to receive error notifications directly via Telegram. Suppose you lack the resources to maintain a full-fledged logging/alerting setup using tools like Kibana, Elasticsearch, or Grafana, or do not have time to configure complex alert rules. In that case, this package provides a lightweight and hassle-free solution
 
