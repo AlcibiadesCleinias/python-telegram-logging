@@ -30,6 +30,9 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+[project.urls]
+"GitHub" = "https://github.com/alcibiadescleinias/python-telegram-logging/"
+
 [project.optional-dependencies]
 dev = [
     "black>=23.0.0",

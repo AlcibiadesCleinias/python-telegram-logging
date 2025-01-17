@@ -207,6 +207,15 @@ handler = SyncTelegramHandler(
 
 MIT License
 
+## Contributing
+
+Feel free to open issues or PR.
+
+Please install and run pre-commit rules [.pre-commit-config.yaml](.pre-commit-config.yaml):
+```
+pre-commit install && ` pre-commit run --all-files
+```
+
 ## TODO
 
 - [ ] what if queue is full?
